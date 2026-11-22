@@ -10,6 +10,10 @@ class ReservasiAdminController extends Controller
 {
     public function index(Request $request)
     {
+        if (method_exists(Reservasi::class, 'batalkanKedaluwarsa')) {
+            Reservasi::batalkanKedaluwarsa();
+        }
+
         $query = Reservasi::with(['user', 'studio', 'promo', 'pembayaran']);
 
         if ($request->filled('status')) {
@@ -33,6 +37,18 @@ class ReservasiAdminController extends Controller
 
         $reservasi->update(['status' => $validated['status']]);
 
-        return back()->with('success', 'Status reservasi ' . $reservasi->kode_booking . ' diperbarui menjadi ' . $validated['status'] . '.');
+        return back()->with('success', 'Status reservasi ' . ($reservasi->kode_booking ?? $reservasi->kode) . ' diperbarui menjadi ' . $validated['status'] . '.');
+    }
+
+    public function destroy(Reservasi $reservasi)
+    {
+        if (!in_array($reservasi->status, ['Menunggu pembayaran', 'Dibatalkan'])) {
+            return back()->with('error', 'Hanya reservasi berstatus Menunggu pembayaran atau Dibatalkan yang dapat dihapus.');
+        }
+
+        $kode = $reservasi->kode_booking ?? $reservasi->kode;
+        $reservasi->delete();
+
+        return back()->with('success', 'Reservasi ' . $kode . ' berhasil dihapus.');
     }
 }

@@ -30,7 +30,7 @@ class PembayaranAdminController extends Controller
 
         if ($validated['aksi'] === 'terima') {
             $pembayaran->update([
-                'status' => 'Diterima',
+                'status' => 'Disetujui',
                 'alasan_penolakan' => null,
             ]);
 

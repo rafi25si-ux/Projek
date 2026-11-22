@@ -8,6 +8,18 @@ class Reservasi extends Model
 {
     protected $guarded = ['id'];
 
+    public static function batalkanKedaluwarsa(): void
+    {
+        self::where('status', 'Menunggu pembayaran')
+            ->where('created_at', '<=', now()->subMinutes(5))
+            ->update(['status' => 'Dibatalkan']);
+    }
+
+    public function getBatasBayarAttribute()
+    {
+        return $this->created_at->copy()->addMinutes(5);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

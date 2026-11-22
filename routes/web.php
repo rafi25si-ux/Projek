@@ -59,6 +59,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/reservasi', [ReservasiAdminController::class, 'index'])->name('reservasi.index');
     Route::patch('/reservasi/{reservasi}/status', [ReservasiAdminController::class, 'updateStatus'])->name('reservasi.status');
+    Route::delete('/reservasi/{reservasi}', [ReservasiAdminController::class, 'destroy'])->name('reservasi.destroy');
 
     Route::get('/pembayaran', [PembayaranAdminController::class, 'index'])->name('pembayaran.index');
     Route::post('/pembayaran/{pembayaran}/verifikasi', [PembayaranAdminController::class, 'verifikasi'])->name('pembayaran.verifikasi');
