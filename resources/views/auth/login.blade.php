@@ -73,6 +73,14 @@
         transform: translateY(-1px);
         box-shadow: 0 8px 20px rgba(255, 193, 7, 0.3);
     }
+    .link-forgot-password {
+        color: #6c757d;
+        transition: color 0.2s ease;
+    }
+    .link-forgot-password:hover {
+        color: #181a1f;
+        text-decoration: underline !important;
+    }
 </style>
 
 <div class="container login-wrapper my-4">
@@ -175,6 +183,9 @@
                                     <input type="checkbox" class="form-check-input" id="remember" name="remember" {{ old('remember') ? 'checked' : '' }}>
                                     <label class="form-check-label small text-muted" for="remember">Ingat sesi saya</label>
                                 </div>
+                                <a href="{{ route('password.request') }}" class="small fw-semibold text-decoration-none link-forgot-password">
+                                    Lupa kata sandi?
+                                </a>
                             </div>
 
                             <button type="submit" class="btn btn-login-submit w-100 fw-bold">

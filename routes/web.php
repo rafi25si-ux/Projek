@@ -14,8 +14,16 @@ use App\Http\Controllers\ReservasiController;
 use App\Http\Controllers\UlasanController;
 use Illuminate\Support\Facades\Route;
 
+// Halaman Awal Saat Pertama Kali Dibuka (127.0.0.1:8000)
+Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('home');
+    }
+    return redirect()->route('register');
+});
+
 // Halaman Publik
-Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/beranda', [HomeController::class, 'index'])->name('home');
 Route::get('/katalog', [HomeController::class, 'katalog'])->name('katalog');
 Route::get('/studio/{studio}', [HomeController::class, 'detail'])->name('studio.detail');
 
@@ -25,6 +33,8 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [AuthController::class, 'register']);
+    Route::get('/lupa-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+    Route::post('/lupa-password', [AuthController::class, 'resetPasswordDirect'])->name('password.direct_reset');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
