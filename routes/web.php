@@ -63,6 +63,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
 
     Route::get('/pembayaran', [PembayaranAdminController::class, 'index'])->name('pembayaran.index');
     Route::post('/pembayaran/{pembayaran}/verifikasi', [PembayaranAdminController::class, 'verifikasi'])->name('pembayaran.verifikasi');
+    Route::delete('/pembayaran/{pembayaran}', [PembayaranAdminController::class, 'destroy'])->name('pembayaran.destroy');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::patch('/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle_status');

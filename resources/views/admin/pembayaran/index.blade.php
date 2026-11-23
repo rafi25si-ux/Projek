@@ -29,7 +29,7 @@
                         <th>Metode & Jumlah</th>
                         <th>Bukti Transfer</th>
                         <th>Status</th>
-                        <th class="pe-4">Verifikasi</th>
+                        <th class="pe-4">Verifikasi & Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -64,25 +64,35 @@
                                 @endif
                             </td>
                             <td class="pe-4">
-                                @if($bayar->status === 'Menunggu verifikasi')
-                                    <div class="d-flex flex-column gap-1">
-                                        <form action="{{ route('admin.pembayaran.verifikasi', $bayar) }}" method="POST">
-                                            @csrf
-                                            <input type="hidden" name="aksi" value="terima">
-                                            <button type="submit" class="btn btn-sm btn-success w-100" onclick="return confirm('Setujui pembayaran ini?')">
-                                                <i class="bi bi-check-lg"></i> Setujui
-                                            </button>
-                                        </form>
-                                        <form action="{{ route('admin.pembayaran.verifikasi', $bayar) }}" method="POST" class="d-flex gap-1">
-                                            @csrf
-                                            <input type="hidden" name="aksi" value="tolak">
-                                            <input type="text" name="alasan_penolakan" class="form-control form-control-sm" placeholder="Alasan tolak..." required>
-                                            <button type="submit" class="btn btn-sm btn-danger">Tolak</button>
-                                        </form>
-                                    </div>
-                                @else
-                                    <span class="text-muted small">Selesai diproses</span>
-                                @endif
+                                <div class="d-flex align-items-center gap-2">
+                                    @if($bayar->status === 'Menunggu verifikasi')
+                                        <div class="d-flex flex-column gap-1">
+                                            <form action="{{ route('admin.pembayaran.verifikasi', $bayar) }}" method="POST">
+                                                @csrf
+                                                <input type="hidden" name="aksi" value="terima">
+                                                <button type="submit" class="btn btn-sm btn-success w-100" onclick="return confirm('Setujui pembayaran ini?')">
+                                                    <i class="bi bi-check-lg"></i> Setujui
+                                                </button>
+                                            </form>
+                                            <form action="{{ route('admin.pembayaran.verifikasi', $bayar) }}" method="POST" class="d-flex gap-1">
+                                                @csrf
+                                                <input type="hidden" name="aksi" value="tolak">
+                                                <input type="text" name="alasan_penolakan" class="form-control form-control-sm" placeholder="Alasan tolak..." required>
+                                                <button type="submit" class="btn btn-sm btn-danger">Tolak</button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <span class="text-muted small">Selesai diproses</span>
+                                    @endif
+
+                                    <form action="{{ route('admin.pembayaran.destroy', $bayar) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus data pembayaran ini?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus Pembayaran">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                     @empty

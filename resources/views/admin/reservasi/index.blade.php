@@ -89,15 +89,13 @@
                                         <button type="submit" class="btn btn-sm btn-dark">Simpan</button>
                                     </form>
 
-                                    @if(in_array($res->status, ['Menunggu pembayaran', 'Dibatalkan']))
-                                        <form action="{{ route('admin.reservasi.destroy', $res) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus permanen reservasi ini?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Hapus Reservasi">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    @endif
+                                    <form action="{{ route('admin.reservasi.destroy', $res) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus permanen reservasi ini?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Hapus Reservasi">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>

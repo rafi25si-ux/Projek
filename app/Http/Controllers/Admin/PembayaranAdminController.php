@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Pembayaran;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PembayaranAdminController extends Controller
 {
@@ -51,5 +52,16 @@ class PembayaranAdminController extends Controller
         ]);
 
         return back()->with('success', 'Pembayaran ditolak. Pelanggan diminta mengunggah ulang bukti pembayaran.');
+    }
+
+    public function destroy(Pembayaran $pembayaran)
+    {
+        if ($pembayaran->bukti_path && Storage::disk('public')->exists($pembayaran->bukti_path)) {
+            Storage::disk('public')->delete($pembayaran->bukti_path);
+        }
+
+        $pembayaran->delete();
+
+        return back()->with('success', 'Data pembayaran berhasil dihapus.');
     }
 }
