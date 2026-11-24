@@ -9,10 +9,30 @@ use App\Models\Studio;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ReservasiController extends Controller
 {
+    private function hitungDiskonPromo(Promo $promo, float $subtotal): float
+    {
+        $tipe = strtolower((string) ($promo->tipe_potongan ?? $promo->tipe_diskon ?? $promo->tipe ?? 'nominal'));
+        $nilai = (float) (
+            $promo->potongan
+            ?? $promo->nilai_potongan
+            ?? $promo->nilai_diskon
+            ?? $promo->besar_potongan
+            ?? $promo->nominal
+            ?? 0
+        );
+
+        $diskon = in_array($tipe, ['persen', 'persentase', 'percent'])
+            ? ($subtotal * $nilai) / 100
+            : $nilai;
+
+        return $subtotal > 0 ? min($diskon, $subtotal) : $diskon;
+    }
+
     public function cekPromo(Request $request)
     {
         $kodeInput = strtoupper(trim($request->input('kode_promo', $request->input('kode', ''))));
@@ -39,27 +59,16 @@ class ReservasiController extends Controller
         }
 
         $subtotal = (float) $request->input('subtotal', 0);
-        $tipe = $promo->tipe_potongan ?? $promo->tipe_diskon ?? 'nominal';
-        $nilai = (float) ($promo->nilai_potongan ?? $promo->nilai_diskon ?? 0);
-
-        $diskon = in_array($tipe, ['persen', 'persentase'])
-            ? ($subtotal * $nilai) / 100
-            : $nilai;
-
-        if ($subtotal > 0) {
-            $diskon = min($diskon, $subtotal);
-        }
+        $diskon = $this->hitungDiskonPromo($promo, $subtotal);
 
         return response()->json([
             'valid' => true,
             'status' => true,
             'promo_id' => $promo->id,
             'kode' => $promo->kode,
-            'tipe_potongan' => $tipe,
-            'nilai_potongan' => $nilai,
             'diskon' => $diskon,
             'total_bayar' => max(0, $subtotal - $diskon),
-            'message' => 'Kode promo berhasil diterapkan!',
+            'message' => 'Kode promo berhasil diterapkan! Hemat Rp ' . number_format($diskon, 0, ',', '.'),
         ]);
     }
 
@@ -98,62 +107,71 @@ class ReservasiController extends Controller
         $durasi = (int) $validated['durasi_jam'];
         $jamSelesai = $jamMulai->copy()->addHours($durasi);
 
-        $bentrok = Reservasi::where('studio_id', $studio->id)
-            ->whereDate('tanggal', $validated['tanggal'])
-            ->whereNotIn('status', ['Dibatalkan'])
-            ->where(function ($query) use ($jamMulai, $jamSelesai) {
-                $query->where('jam_mulai', '<', $jamSelesai->format('H:i:s'))
-                      ->where('jam_selesai', '>', $jamMulai->format('H:i:s'));
-            })
-            ->exists();
-
-        if ($bentrok) {
-            return back()->withInput()->with('error', 'Jadwal pada jam tersebut sudah terisi. Silakan pilih jam lain.');
+        // Pastikan jam mulai tidak berada di masa lalu jika memesan hari ini
+        if ($jamMulai->lt(now())) {
+            return back()->withInput()->with('error', 'Jam mulai sudah terlewat. Silakan pilih jam yang akan datang.');
         }
 
-        $subtotal = $studio->harga_per_jam * $durasi;
-        $diskon = 0;
-        $promoId = null;
+        // Database Transaction + Row Locking (NFR-09) untuk mencegah double booking
+        $reservasi = DB::transaction(function () use ($studio, $validated, $jamMulai, $jamSelesai, $durasi) {
+            $bentrok = Reservasi::where('studio_id', $studio->id)
+                ->whereDate('tanggal', $validated['tanggal'])
+                ->whereNotIn('status', ['Dibatalkan'])
+                ->where(function ($query) use ($jamMulai, $jamSelesai) {
+                    $query->where('jam_mulai', '<', $jamSelesai->format('H:i:s'))
+                          ->where('jam_selesai', '>', $jamMulai->format('H:i:s'));
+                })
+                ->lockForUpdate()
+                ->exists();
 
-        if (!empty($validated['kode_promo'])) {
-            $promo = Promo::where('kode', strtoupper(trim($validated['kode_promo'])))
-                ->whereDate('berlaku_mulai', '<=', now())
-                ->whereDate('berlaku_sampai', '>=', now())
-                ->first();
-
-            if ($promo) {
-                $promoId = $promo->id;
-                $tipe = $promo->tipe_potongan ?? $promo->tipe_diskon ?? 'nominal';
-                $nilai = (float) ($promo->nilai_potongan ?? $promo->nilai_diskon ?? 0);
-
-                $diskon = in_array($tipe, ['persen', 'persentase'])
-                    ? ($subtotal * $nilai) / 100
-                    : $nilai;
-
-                $diskon = min($diskon, $subtotal);
+            if ($bentrok) {
+                return null;
             }
+
+            $subtotal = $studio->harga_per_jam * $durasi;
+            $diskon = 0;
+            $promoId = null;
+
+            if (!empty($validated['kode_promo'])) {
+                $promo = Promo::where('kode', strtoupper(trim($validated['kode_promo'])))
+                    ->whereDate('berlaku_mulai', '<=', now())
+                    ->whereDate('berlaku_sampai', '>=', now())
+                    ->first();
+
+                if ($promo) {
+                    $promoId = $promo->id;
+                    $diskon = $this->hitungDiskonPromo($promo, $subtotal);
+                }
+            }
+
+            $totalBayar = max(0, $subtotal - $diskon);
+            $kodeBooking = 'SMP-' . now()->format('Ymd') . '-' . strtoupper(Str::random(4));
+
+            return Reservasi::create([
+                'kode' => $kodeBooking,
+                'kode_booking' => $kodeBooking,
+                'user_id' => Auth::id(),
+                'studio_id' => $studio->id,
+                'promo_id' => $promoId,
+                'tanggal' => $validated['tanggal'],
+                'jam_mulai' => $jamMulai->format('H:i:s'),
+                'jam_selesai' => $jamSelesai->format('H:i:s'),
+                'durasi_jam' => $durasi,
+                'subtotal' => $subtotal,
+                'diskon' => $diskon,
+                'total_harga' => $totalBayar,
+                'total_bayar' => $totalBayar,
+                'catatan' => $validated['catatan'] ?? null,
+                'status' => 'Menunggu pembayaran',
+            ]);
+        });
+
+        if (!$reservasi) {
+            return back()->withInput()->with(
+                'error',
+                'Gagal memesan! Jadwal studio pada ' . $jamMulai->format('H:i') . ' - ' . $jamSelesai->format('H:i') . ' sudah dipesan pelanggan lain.'
+            );
         }
-
-        $totalBayar = max(0, $subtotal - $diskon);
-        $kodeBooking = 'SMP-' . now()->format('Ymd') . '-' . strtoupper(Str::random(4));
-
-        $reservasi = Reservasi::create([
-            'kode' => $kodeBooking,
-            'kode_booking' => $kodeBooking,
-            'user_id' => Auth::id(),
-            'studio_id' => $studio->id,
-            'promo_id' => $promoId,
-            'tanggal' => $validated['tanggal'],
-            'jam_mulai' => $jamMulai->format('H:i:s'),
-            'jam_selesai' => $jamSelesai->format('H:i:s'),
-            'durasi_jam' => $durasi,
-            'subtotal' => $subtotal,
-            'diskon' => $diskon,
-            'total_harga' => $totalBayar,
-            'total_bayar' => $totalBayar,
-            'catatan' => $validated['catatan'] ?? null,
-            'status' => 'Menunggu pembayaran',
-        ]);
 
         return redirect()->route('riwayat.detail', $reservasi)
             ->with('success', 'Reservasi berhasil dibuat! Silakan lakukan pembayaran dalam 5 menit dan unggah bukti transfer.');
@@ -185,6 +203,15 @@ class ReservasiController extends Controller
         $reservasi->load(['studio.fotos', 'promo', 'pembayaran', 'ulasan']);
 
         return view('pelanggan.detail_reservasi', compact('reservasi'));
+    }
+
+    public function cekStatus(Reservasi $reservasi)
+    {
+        abort_if($reservasi->user_id !== Auth::id(), 403);
+
+        return response()->json([
+            'status' => $reservasi->status,
+        ]);
     }
 
     public function uploadBukti(Request $request, Reservasi $reservasi)

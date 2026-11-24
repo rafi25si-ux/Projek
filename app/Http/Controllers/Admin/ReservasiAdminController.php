@@ -16,6 +16,17 @@ class ReservasiAdminController extends Controller
 
         $query = Reservasi::with(['user', 'studio', 'promo', 'pembayaran']);
 
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('kode', 'like', "%{$search}%")
+                  ->orWhere('kode_booking', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($userQuery) use ($search) {
+                      $userQuery->where('name', 'like', "%{$search}%");
+                  });
+            });
+        }
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }

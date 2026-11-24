@@ -53,7 +53,7 @@ Route::middleware(['auth', 'role:pelanggan'])->group(function () {
 
     Route::get('/favorit', [FavoritController::class, 'index'])->name('favorit.index');
     Route::post('/favorit/{studio}/toggle', [FavoritController::class, 'toggle'])->name('favorit.toggle');
-
+    Route::get('/riwayat/{reservasi}/cek-status', [ReservasiController::class, 'cekStatus'])->name('riwayat.cek-status');
     Route::post('/ulasan/{reservasi}', [UlasanController::class, 'store'])->name('ulasan.store');
 });
 
